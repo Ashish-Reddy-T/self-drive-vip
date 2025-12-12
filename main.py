@@ -555,6 +555,8 @@ async def get_screenshot_v2():
 
     async def get_frame(frame_type):
         frame = await getattr(browser_service, frame_type)()
+        if frame is None:
+            return None
         _, frame = frame.split(",", 1)
         return {f"{frame_type}_frame": frame}
 
@@ -569,7 +571,8 @@ async def get_screenshot_v2():
 
     response_data = {}
     for result in results:
-        response_data.update(result)
+        if result is not None:
+            response_data.update(result)
 
     if not response_data:
         raise HTTPException(status_code=404, detail="Frames not available")

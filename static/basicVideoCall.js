@@ -350,17 +350,41 @@ function getCodec() {
   return value;
 }
 
-async function captureFrameAsBase64(videoTrack) {
-  const frame = await videoTrack.getCurrentFrameData();
-  const canvas = document.createElement("canvas");
-  canvas.width = frame.width;
-  canvas.height = frame.height;
-  const ctx = canvas.getContext("2d");
-  ctx.putImageData(frame, 0, 0);
-  return canvas.toDataURL(
-    `image/${window.imageParams["imageFormat"]}`,
-    window.imageParams["imageQuality"]
-  );
+async function captureFrameAsBase64(videoTrack, uid) {
+  // Try to capture from video element directly (works in WebKit/Safari)
+  const videoElement = document.querySelector(`#player-${uid} video`);
+  
+  if (videoElement && videoElement.videoWidth > 0 && videoElement.videoHeight > 0) {
+    const canvas = document.createElement("canvas");
+    canvas.width = videoElement.videoWidth;
+    canvas.height = videoElement.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL(
+      `image/${window.imageParams["imageFormat"]}`,
+      window.imageParams["imageQuality"]
+    );
+  }
+  
+  // Fallback to Agora's API (works in Chrome when not headless)
+  try {
+    const frame = await videoTrack.getCurrentFrameData();
+    if (frame && frame.width > 0 && frame.height > 0) {
+      const canvas = document.createElement("canvas");
+      canvas.width = frame.width;
+      canvas.height = frame.height;
+      const ctx = canvas.getContext("2d");
+      ctx.putImageData(frame, 0, 0);
+      return canvas.toDataURL(
+        `image/${window.imageParams["imageFormat"]}`,
+        window.imageParams["imageQuality"]
+      );
+    }
+  } catch (e) {
+    console.warn("getCurrentFrameData failed:", e);
+  }
+  
+  return null;
 }
 
 // Add at the beginning of the file
@@ -374,7 +398,7 @@ async function getLastBase64Frame(uid) {
     return null;
   }
 
-  const base64Frame = await captureFrameAsBase64(user.videoTrack);
+  const base64Frame = await captureFrameAsBase64(user.videoTrack, uid);
   lastBase64Frames[uid] = base64Frame;
   return base64Frame;
 }
